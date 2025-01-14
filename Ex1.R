@@ -2,6 +2,7 @@ library(mlr3)
 library(ggplot2)
 library(mlbench)
 library(data.table)
+library(mlr3measures)
 
 set.seed(1111)
 
@@ -17,11 +18,25 @@ pima_task = as_task_classif(pima_data, target = "diabetes", positive = "pos")
 # Split the data into 80% training and 20% testing
 split = partition(pima_task, ratio = 0.8)
 
+# Set up the measure (classification error)
+measure_ce = msr("classif.ce")
+
+# Set up a baseline featureless learner
+featureless_model = lrn("classif.featureless", predict_type = "prob")
+# Train the featureless learner
+featureless_model$train(pima_task, row_ids = split$train)
+# Test the featureless learner
+featureless_preds = featureless_model$predict(pima_task, row_ids = split$test)
+# Set the threshold to 0.65
+featureless_preds$set_threshold(0.65)
+# Score it with the classification error measure
+classification_error_featureless = featureless_preds$score(measure_ce)
+print(paste("Classification Error (featureless):", classification_error_featureless))
+
 # Set up the learner
 model = lrn("classif.rpart", predict_type = "prob")
-
 # Train the model
-model = model$train(pima_task, row_ids = split$train)
+model$train(pima_task, row_ids = split$train)
 
 # Test the model
 predictions = model$predict(pima_task, row_ids = split$test)
@@ -67,9 +82,10 @@ print(paste("False Negative Rate (FNR):", rates$FNR))
 # Confusion matrix
 print(predictions$confusion)
 
-# Set up the measure (classification error)
-measure1 = msr("classif.ce")
-
 # Score the predictions
-classification_error = predictions$score(measure1)
-print(paste("Classification Error:", classification_error))
+classification_error = predictions$score(measure_ce)
+print(paste("Classification Error (2nd model):", classification_error))
+
+#Print both errors for comparison
+print(paste("Classification Error (featureless):", classification_error_featureless))
+print(paste("Classification Error (2nd model):", classification_error))
