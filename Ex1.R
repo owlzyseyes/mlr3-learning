@@ -3,6 +3,7 @@ library(ggplot2)
 library(mlbench)
 library(data.table)
 library(mlr3measures)
+library(mlr3viz)
 
 set.seed(1111)
 
@@ -28,7 +29,7 @@ featureless_model$train(pima_task, row_ids = split$train)
 # Test the featureless learner
 featureless_preds = featureless_model$predict(pima_task, row_ids = split$test)
 # Set the threshold to 0.65
-featureless_preds$set_threshold(0.65)
+featureless_preds$set_threshold(0.5)
 # Score it with the classification error measure
 classification_error_featureless = featureless_preds$score(measure_ce)
 print(paste("Classification Error (featureless):", classification_error_featureless))
@@ -41,51 +42,14 @@ model$train(pima_task, row_ids = split$train)
 # Test the model
 predictions = model$predict(pima_task, row_ids = split$test)
 
-# Function to calculate FPR and FNR
-calculate_rates <- function(predictions) {
-  conf_matrix <- predictions$confusion
-  TN <- conf_matrix[1, 1]
-  FP <- conf_matrix[1, 2]
-  FN <- conf_matrix[2, 1]
-  TP <- conf_matrix[2, 2]
-  
-  FPR <- FP / (FP + TN)
-  FNR <- FN / (FN + TP)
-  
-  list(FPR = FPR, FNR = FNR)
-}
+#selected_threshold
+predictions$set_threshold(0.5)
+#predictions$set_threshold(0.3)
 
-# Initialize variables
-thresholds <- seq(0.1, 0.9, by = 0.01)
-selected_threshold <- NA
+#check the fpr and fnr
+predictions$score(msr("classif.fpr"))
+predictions$score(msr("classif.fnr"))
 
-# Evaluate thresholds
-for (threshold in thresholds) {
-  predictions$set_threshold(threshold)
-  rates <- calculate_rates(predictions)
-  
-  if (rates$FPR < rates$FNR) {
-    selected_threshold <- threshold
-    break
-  }
-}
-
-# Set the selected threshold
-predictions$set_threshold(selected_threshold)
-rates <- calculate_rates(predictions)
-
-# Print the final threshold and rates
-print(paste("Selected threshold:", selected_threshold))
-print(paste("False Positive Rate (FPR):", rates$FPR))
-print(paste("False Negative Rate (FNR):", rates$FNR))
-
-# Confusion matrix
-print(predictions$confusion)
-
-# Score the predictions
-classification_error = predictions$score(measure_ce)
-print(paste("Classification Error (2nd model):", classification_error))
-
-#Print both errors for comparison
-print(paste("Classification Error (featureless):", classification_error_featureless))
-print(paste("Classification Error (2nd model):", classification_error))
+#viusalize fpr with prob threshold
+autoplot(predictions,  type = "threshold", measure = msr("classif.fnr"))
+autoplot(predictions,  type = "threshold", measure = msr("classif.acc"))
